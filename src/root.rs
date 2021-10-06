@@ -1,6 +1,6 @@
 extern crate num;
 const GAM: f64 = 1e-8;
-const A: f64 = 200.0;
+const A: f64 = 85.0;
 
  use num::{Float,  Signed, abs};
 /* ----------------------------------------------------------- */
@@ -28,8 +28,7 @@ impl<T: Float + Signed> Epsilon for T {
         abs(*self) < abs(precision)
     }
 }
-//pub mod epsilon;
-//use epsilon::Epsilon;
+
 
 /* ---------- Newton's method (single root) ---------- */
 
@@ -129,30 +128,29 @@ fn linear_fallback<T: Float>(x1: T , x2: T, y1: T, y2: T) -> Option<T>
     }
 }
 
-/* --------  Curve v1 ---------
-offer_pool -> offer_pool_amount
-ask_pool -> ask_pool_amount
-offer -> offer_asset_amount
-*/
-
 
 pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
 {
     let prec = 1e-2;
-    let _a: f64 = 1085.0;
+    let _a: f64 = 80.0;
     let _d: f64 = 5.0;
     let op = _offer_pool as f64;
     let ap = _ask_pool as f64;
     let of = _offer as f64;
     let sum: f64 = op + ap;
     let prod: f64 =  op * ap;
+    let a4: f64 = 4.0 * A;
+    let prod4: f64 = 4.0 * prod;
+    let a4_1: f64 = a4 - 1.0;
+    let a4_sum: f64 = a4 * sum;
+    let prod4_3: f64 = 3.0 / prod4;
     let _cfg = OneRootNewtonCfg {
         precision: prec,
         max_iters: None
     };
 
-    let _target_d = |x: f64| x * (4.0 * _a - 1.0) +  x* x* x / (4.0 * prod) - 4.0 * _a * sum;
-    let _der_d =  |x: f64| 4.0 * _a * - 1.0 + 3.0 * x * x / (4.0 * prod);
+    let _target_d = |x: f64| x * a4_1 +  x* x* x / prod4 - a4_sum;
+    let _der_d =  |x: f64| a4  - 1.0 + prod4_3 * x * x ;
 
     let prec = 1.0;
     let _cfg = OneRootNewtonCfg {
@@ -160,7 +158,7 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
         max_iters: None
     };
 
-    let sol = newton_one(_cfg, 0.0, 1000000000.0, 60.0, &_target_d, &_der_d);
+    let sol = newton_one(_cfg, 0.0, 10e9, 60.0, &_target_d, &_der_d);
 
     let z: f64;
 
@@ -169,31 +167,21 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
         None => panic!(),
     };
 
-  // let rslt =  Some(sol).unwrap();
 
   println!("z = {:?}", z);
 
-   //println!("Result {:?}", rslt);
 
    let d1 = z.floor() as u128;
    println!("Result t = {:?}", d1);
-   /*
-   match sol {
-       Some(rslt) => rslt,
-       None,
-   };
-   */
-
-   println!("A = {:?}, offer pool = {:?}", _a, _offer_pool);
+  
+   println!("A = {:?}, offer pool = {:?}", A, _offer_pool);
 
    let x1: f64 = op + of;
 
-  let _target_y = |x: f64| 4.0 * _a * z + z * z * z / (4.0 * x1 * x) - 
-        4.0 * _a * ( x1 + x) - z;
-  let _der_y = |x: f64| (- z) * z * z / (4.0 * x1 * x *x) - 4.0 * _a;
+  let _target_y = |x: f64| a4 * z + z * z * z / (4.0 * x1 * x) -  a4 * ( x1 + x) - z;
+  let _der_y = |x: f64| (- z) * z * z / (4.0 * x1 * x *x) - a4;
 
-  let sol_y = newton_one(_cfg, 0.0, 1000000000.0, 1000.0, &_target_y, &_der_y);
-
+  let sol_y = newton_one(_cfg, 0.0, 10e9, 10e3, &_target_y, &_der_y);
   let y: u128;
 
   match sol_y {
@@ -201,10 +189,6 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
         None => panic!(),
   }
 
-  //println!("offer = {:?}, new D = {:?}, x+ dx = {:?}, Ask pool = {:?}", y, z, x1, _ask_pool);
-  
- // let o1: u128 = _offer_pool + _ask_pool + _offer;
-//  let d2: u128 = o1 - d1;
     return (_ask_pool - y) as u128 ;
 }
 
@@ -212,9 +196,7 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
 pub fn curve_v2(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
 {
     let prec = 1e-2;
-    //let _a: f64 = 85.0;
     let _d: f64 = 5.0;
-    //let _gam = 1e-4;
     let beta = GAM  + 1.0;
     let op = _offer_pool as f64;
     let ap = _ask_pool as f64;
@@ -223,13 +205,16 @@ pub fn curve_v2(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
     let prod: f64 =  op * ap;
     let s1: f64 = 4.0 * A * prod * GAM * GAM;
     let d0: f64 = op + ap;
+    let prod4: f64 = 4.0 * prod;
+    let beta_3: f64 = (-3.0) * beta;
+    let beta_4_sum: f64 = 4.0 * sum * beta;
     let _cfg = OneRootNewtonCfg {
         precision: prec,
         max_iters: None
     };
 
-    let _target_d = |x: f64| s1*(sum-x)/((beta*x*x-4.0*prod)*(beta*x*x-4.0*prod)) +prod-x*x/4.0;
-    let _der_d =  |x: f64| (-s1)*(-3.0*beta*x*x+4.0*sum*beta*x-4.0*prod)/ ((beta*x*x-4.0*prod)*(beta*x*x-4.0*prod)*(beta*x*x-4.0*prod)) - x/2.0;
+    let _target_d = |x: f64| s1*(sum-x)/((beta*x*x-prod4)*(beta*x*x-prod4)) +prod-x*x/4.0;
+    let _der_d =  |x: f64| (-s1)*(beta_3*x*x+beta_4_sum*x-prod4)/ ((beta*x*x-prod4)*(beta*x*x-prod4)*(beta*x*x-prod4)) - x/2.0;
 
     let prec = 1.0;
     let _cfg = OneRootNewtonCfg {
@@ -237,12 +222,10 @@ pub fn curve_v2(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
         max_iters: None
     };
 
-    let sol = newton_one(_cfg, 0.0, 2000000.0, d0, &_target_d, &_der_d);
+    let sol = newton_one(_cfg, 0.0, 10e9, d0, &_target_d, &_der_d);
 
     let z: f64;
 
-
-   // let rslt =  Some(sol).unwrap();
    match sol {
     Some(ss) => z = ss,
     None => panic!(),
@@ -254,29 +237,12 @@ println!("z = {:?}", z);
 
 println!("Result {:?}", rslt);
 
-// let x1 = op + of;
-
-// let x0: f64 = z / (2.0 * x1);
-
 let d1 = z.floor() as u128;
 println!("Result v2 = {:?}", d1);
 
 /* --------------   find  offer ----------------- */
 
 let x0 = op + of;
-/*
-let s1 = 4.0 * A * x1 * GAM * GAM;
-let s2 = z * x1 - 1.0;
-let s3 = 4.0 * x1 / (z * z);
-let s4 = s2 + z * x1;
-let s5 = 8.0 * x1 * ( s2 + z );
-let s6 = s1 * s4;
-let s7 = s1 * s5;
-let s8 = z * z / 4.0;
-let s9 = s1 * s2;
-let s10 = s1 * z;
-*/
-
 let x_start = z / ( 2.0 * x0);
 let b1: f64 = 4.0 * x0 /(z*z);
 let b2: f64 = A * b1 * GAM * GAM;
@@ -287,7 +253,7 @@ let b5: f64 = b2 * z;
 let _target_y = |x: f64| b5 * x * (b3 + x)/((beta - b1 * x)*(beta - b1 * x)) + x0 * x - b4;
 let _der_y = |x: f64| b5 * (b1 * b3 * x + 2.0 * beta * x + b3 * beta) /((beta - b1 *x)*(beta - b1 *x)*(beta - b1 *x))+ x0;
 
-let sol_y = newton_one(_cfg, 0.0, 100000000.0, x_start, &_target_y, &_der_y);
+let sol_y = newton_one(_cfg, 0.0, 10e9, x_start, &_target_y, &_der_y);
 
 let y: u128;
 
@@ -298,9 +264,6 @@ match sol_y {
 
 println!("offer = {:?}, new D = {:?}, x+ dx = {:?}, Ask pool = {:?}", y, z, x0, _ask_pool);
   return _ask_pool - y;
-
-
-
 }
 
 
