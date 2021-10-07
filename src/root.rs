@@ -128,9 +128,17 @@ fn linear_fallback<T: Float>(x1: T , x2: T, y1: T, y2: T) -> Option<T>
     }
 }
 
+/* ---------------------------------
+    IMPLEMENTATION OF THE CURVE V1 ALGORITHM ACCORDING TO 
+    THE PAPER BY MICHAEL EGOROV ON 10 NOVEMBER 2019
+*/
 
 pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
 {
+    /* Before the Newton's method to be called, 
+    numerical coefficients of the polinomials are calculated
+    to avoid same calculations in iterations
+    */
     let prec = 1e-2;
     let _a: f64 = 80.0;
     let _d: f64 = 5.0;
@@ -149,6 +157,10 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
         max_iters: None
     };
 
+    /* 
+        the function below and its derivative are defined
+        and sent to the Newton's algorithm
+    */
     let _target_d = |x: f64| x * a4_1 +  x* x* x / prod4 - a4_sum;
     let _der_d =  |x: f64| a4  - 1.0 + prod4_3 * x * x ;
 
@@ -158,6 +170,7 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
         max_iters: None
     };
 
+    // Call the Newton's algorithm
     let sol = newton_one(_cfg, 0.0, 10e9, 60.0, &_target_d, &_der_d);
 
     let z: f64;
@@ -192,9 +205,20 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
     return (_ask_pool - y) as u128 ;
 }
 
+/* ---------------------------------
+    IMPLEMENTATION OF THE CURVE V2 ALGORITHM ACCORDING TO 
+    THE PAPER BY MICHAEL EGOROV ON 9 JUNE 2021
+    CURRENTLY ONLY CurveCrypto INVARIANT IS IMPLEMENTED.
+    THE REPEGGING ALGORITHM IS NOT IMPLEMENTED AS IT REQUIRES
+    A KNOWLEDGE OF HISTORICAL DATA
+*/
 
 pub fn curve_v2(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
 {
+    /* Before the Newton's method to be called, 
+    numerical coefficients of the polinomials are calculated
+    to avoid same calculations in iterations
+    */
     let prec = 1e-2;
     let _d: f64 = 5.0;
     let beta = GAM  + 1.0;
