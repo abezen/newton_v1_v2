@@ -7,7 +7,7 @@ pub mod root;
 
 fn main() {
     let op: u128 = 7011000;
-    let ap: u128 = 5011000;
+    let ap: u128 = 6011000;
     let of: u128 = 5000;
     let aa: u128 = 5000;
     
