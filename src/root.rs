@@ -1,6 +1,8 @@
 extern crate num;
-const GAM: f64 = 1e-8;
+const GAM: f64 = 1e-6;
 const A: f64 = 85.0;
+const COMMISION_RATE: f64 = 0.05; 
+
 
  use num::{Float,  Signed, abs};
 /* ----------------------------------------------------------- */
@@ -139,9 +141,10 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
     numerical coefficients of the polinomials are calculated
     to avoid same calculations in iterations
     */
-    let prec = 1e-2;
-    let _a: f64 = 80.0;
-    let _d: f64 = 5.0;
+   
+    let prec = 1e-5;
+    //let _a: f64 = 80.0;
+   // let _d: f64 = 5.0;
     let op = _offer_pool as f64;
     let ap = _ask_pool as f64;
     let of = _offer as f64;
@@ -164,7 +167,8 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
     let _target_d = |x: f64| x * a4_1 +  x* x* x / prod4 - a4_sum;
     let _der_d =  |x: f64| a4  - 1.0 + prod4_3 * x * x ;
 
-    let prec = 1.0;
+    //let prec = 1.0;
+    let prec = 1e-2;
     let _cfg = OneRootNewtonCfg {
         precision: prec,
         max_iters: None
@@ -181,7 +185,7 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
     };
 
 
-  println!("z = {:?}", z);
+  println!("D_v1 = {:?}", z);
 
 
    let d1 = z.floor() as u128;
@@ -194,13 +198,15 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
   let _target_y = |x: f64| a4 * z + z * z * z / (4.0 * x1 * x) -  a4 * ( x1 + x) - z;
   let _der_y = |x: f64| (- z) * z * z / (4.0 * x1 * x *x) - a4;
 
-  let sol_y = newton_one(_cfg, 0.0, 10e9, 10e3, &_target_y, &_der_y);
+  let sol_y = newton_one(_cfg, 0.0, 10e9, of, &_target_y, &_der_y);
   let y: u128;
 
   match sol_y {
       Some(t) => y = t.floor() as u128,
         None => panic!(),
   }
+
+  println!("Result sol_y = {:?}", sol_y);
 
     return (_ask_pool - y) as u128 ;
 }
@@ -257,7 +263,7 @@ pub fn curve_v2(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
 
 let rslt =  Some(sol).unwrap();
 
-println!("z = {:?}", z);
+println!("D_v2 = {:?}", z);
 
 println!("Result {:?}", rslt);
 
@@ -288,6 +294,25 @@ match sol_y {
 
 println!("offer = {:?}, new D = {:?}, x+ dx = {:?}, Ask pool = {:?}", y, z, x0, _ask_pool);
   return _ask_pool - y;
+}
+
+// These 2 functions replace the code in lines 598- 601
+pub fn compute_offer_amount_curve_v1(ask_pool: u128, offer_pool: u128, ask_amount: u128)  -> u128
+{
+    let ask_amnt = ask_amount as f64;
+    let ask_amnt_with_rate: u128 = (ask_amnt * 1.0 / (1.0 - COMMISION_RATE)).round() as u128;
+    let offer_amount: u128 = curve_v1(offer_pool, ask_pool, ask_amnt_with_rate);
+
+    return offer_amount;
+}
+
+pub fn compute_offer_amount_curve_v2(ask_pool: u128, offer_pool: u128, ask_amount: u128)  -> u128
+{
+    let ask_amnt = ask_amount as f64;
+    let ask_amnt_with_rate: u128 = (ask_amnt * 1.0 / (1.0 - COMMISION_RATE)).round() as u128;
+    let offer_amount: u128 = curve_v2(offer_pool, ask_pool, ask_amnt_with_rate);
+
+    return offer_amount;
 }
 
 
