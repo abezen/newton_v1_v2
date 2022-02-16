@@ -1,8 +1,8 @@
 extern crate num;
 const GAM: f64 = 1e-6;
 const A: f64 = 85.0;
-const COMMISION_RATE: f64 = 0.05; 
-
+// const COMMISION_RATE: f64 = 0.05; 
+const COMMISION_RATE: f64 = 0.003; 
 
  use num::{Float,  Signed, abs};
 /* ----------------------------------------------------------- */
@@ -135,19 +135,8 @@ fn linear_fallback<T: Float>(x1: T , x2: T, y1: T, y2: T) -> Option<T>
     THE PAPER BY MICHAEL EGOROV ON 10 NOVEMBER 2019
 */
 
-pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
+pub fn compute_d(op: f64, ap: f64) -> f64
 {
-    /* Before the Newton's method to be called, 
-    numerical coefficients of the polinomials are calculated
-    to avoid same calculations in iterations
-    */
-   
-    let prec = 1e-5;
-    //let _a: f64 = 80.0;
-   // let _d: f64 = 5.0;
-    let op = _offer_pool as f64;
-    let ap = _ask_pool as f64;
-    let of = _offer as f64;
     let sum: f64 = op + ap;
     let prod: f64 =  op * ap;
     let a4: f64 = 4.0 * A;
@@ -155,61 +144,68 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
     let a4_1: f64 = a4 - 1.0;
     let a4_sum: f64 = a4 * sum;
     let prod4_3: f64 = 3.0 / prod4;
+    let prec = 1.0e-1;
     let _cfg = OneRootNewtonCfg {
         precision: prec,
         max_iters: None
     };
 
-    /* 
-        the function below and its derivative are defined
-        and sent to the Newton's algorithm
-    */
     let _target_d = |x: f64| x * a4_1 +  x* x* x / prod4 - a4_sum;
     let _der_d =  |x: f64| a4  - 1.0 + prod4_3 * x * x ;
 
-    //let prec = 1.0;
-    let prec = 1e-2;
+    let sol = newton_one(_cfg, 0.0, 10e25, 1000.0, &_target_d, &_der_d);
+
+    let d: f64;
+
+    match sol {
+        Some(ss) => d = ss,
+        None => panic!(),
+    };
+
+    return d;
+}
+
+pub fn get_ask_amount(op: f64, of: f64, d: f64) -> f64
+{
+    let a4 = 4.0 * A;
+    let x1: f64 = op + of;
+    let _target_y = |x: f64| a4 * d + d * d * d / (4.0 * x1 * x) -  a4 * ( x1 + x) - d;
+    let _der_y = |x: f64| (- d) * d * d / (4.0 * x1 * x *x) - a4;
+
+    let prec = 1.0;
     let _cfg = OneRootNewtonCfg {
         precision: prec,
         max_iters: None
     };
 
-    // Call the Newton's algorithm
-    let sol = newton_one(_cfg, 0.0, 10e9, 60.0, &_target_d, &_der_d);
+    let sol = newton_one(_cfg, 0.0, 10e25, of, &_target_y, &_der_y);
 
-    let z: f64;
+    let ask_pool: f64;
 
     match sol {
-        Some(ss) => z = ss,
+        Some(ss) => ask_pool = ss,
         None => panic!(),
     };
 
-
-  println!("D_v1 = {:?}", z);
-
-
-   let d1 = z.floor() as u128;
-   println!("Result t = {:?}", d1);
-  
-   println!("A = {:?}, offer pool = {:?}", A, _offer_pool);
-
-   let x1: f64 = op + of;
-
-  let _target_y = |x: f64| a4 * z + z * z * z / (4.0 * x1 * x) -  a4 * ( x1 + x) - z;
-  let _der_y = |x: f64| (- z) * z * z / (4.0 * x1 * x *x) - a4;
-
-  let sol_y = newton_one(_cfg, 0.0, 10e9, of, &_target_y, &_der_y);
-  let y: u128;
-
-  match sol_y {
-      Some(t) => y = t.floor() as u128,
-        None => panic!(),
-  }
-
-  println!("Result sol_y = {:?}", sol_y);
-
-    return (_ask_pool - y) as u128 ;
+    return ask_pool;
 }
+
+pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
+{
+    let op = _offer_pool as f64;
+    let ap = _ask_pool as f64;
+    let of = _offer as f64;
+    let d = compute_d(op, ap);
+
+    println!("d version 2 = {0}", d);
+
+    let ask_f = get_ask_amount(op, of, d);
+    let ask_amnt: u128 = ask_f as u128;
+    return _ask_pool - ask_amnt;
+}
+
+
+
 
 /* ---------------------------------
     IMPLEMENTATION OF THE CURVE V2 ALGORITHM ACCORDING TO 
@@ -296,14 +292,45 @@ println!("offer = {:?}, new D = {:?}, x+ dx = {:?}, Ask pool = {:?}", y, z, x0, 
   return _ask_pool - y;
 }
 
+
+pub fn get_offer_amount(ap: f64, ask_amnt: f64, d: f64) -> f64
+{
+    let a4 = 4.0 * A;
+    let x1: f64 = ap - ask_amnt;
+    let _target_y = |x: f64| a4 * d + d * d * d / (4.0 * x1 * x) -  a4 * ( x1 + x) - d;
+    let _der_y = |x: f64| (- d) * d * d / (4.0 * x1 * x *x) - a4;
+
+    let prec = 1.0;
+    let _cfg = OneRootNewtonCfg {
+        precision: prec,
+        max_iters: None
+    };
+
+    let sol = newton_one(_cfg, 0.0, 10e25, ask_amnt, &_target_y, &_der_y);
+
+    let offer_pool: f64;
+
+    match sol {
+        Some(ss) => offer_pool = ss,
+        None => panic!(),
+    };
+
+    return offer_pool;
+}
+
 // These 2 functions replace the code in lines 598- 601
 pub fn compute_offer_amount_curve_v1(ask_pool: u128, offer_pool: u128, ask_amount: u128)  -> u128
-{
-    let ask_amnt = ask_amount as f64;
-    let ask_amnt_with_rate: u128 = (ask_amnt * 1.0 / (1.0 - COMMISION_RATE)).round() as u128;
-    let offer_amount: u128 = curve_v1(offer_pool, ask_pool, ask_amnt_with_rate);
+{   
+    let op = offer_pool as f64;
+    let ap = ask_pool as f64;
+    let am = ask_amount as f64;
 
-    return offer_amount;
+    let d = compute_d(op, ap);
+    let offer_f = get_offer_amount(ap, am, d);
+    let offer_amnt: u128 = offer_f as u128;
+
+    println!("A = {0}", A);
+    return offer_amnt - offer_pool;
 }
 
 pub fn compute_offer_amount_curve_v2(ask_pool: u128, offer_pool: u128, ask_amount: u128)  -> u128
