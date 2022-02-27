@@ -1,8 +1,13 @@
+use ta::indicators::ExponentialMovingAverage;
+use ta::Next;
+
 extern crate num;
 const GAM: f64 = 1e-6;
 const A: f64 = 85.0;
 // const COMMISION_RATE: f64 = 0.05; 
 const COMMISION_RATE: f64 = 0.003; 
+const COEFFS:[f64;5] = [1.0, 0.5, 0.013888888888888888, 0.000992063492063492, 0.00003306878306878307];
+const LOG_E_2: f64 = 0.69314718055995;
 
  use num::{Float,  Signed, abs};
 /* ----------------------------------------------------------- */
@@ -135,7 +140,7 @@ fn linear_fallback<T: Float>(x1: T , x2: T, y1: T, y2: T) -> Option<T>
     THE PAPER BY MICHAEL EGOROV ON 10 NOVEMBER 2019
 */
 
-pub fn compute_d(op: f64, ap: f64) -> f64
+pub fn compute_d(op: f64, ap: f64, d0: f64) -> f64
 {
     let sum: f64 = op + ap;
     let prod: f64 =  op * ap;
@@ -153,7 +158,7 @@ pub fn compute_d(op: f64, ap: f64) -> f64
     let _target_d = |x: f64| x * a4_1 +  x* x* x / prod4 - a4_sum;
     let _der_d =  |x: f64| a4  - 1.0 + prod4_3 * x * x ;
 
-    let sol = newton_one(_cfg, 0.0, 10e25, 1000.0, &_target_d, &_der_d);
+    let sol = newton_one(_cfg, 0.0, 10e25, d0, &_target_d, &_der_d);
 
     let d: f64;
 
@@ -195,7 +200,8 @@ pub fn curve_v1(_offer_pool: u128, _ask_pool: u128, _offer: u128)  -> u128
     let op = _offer_pool as f64;
     let ap = _ask_pool as f64;
     let of = _offer as f64;
-    let d = compute_d(op, ap);
+    let d0 = 1000.0;
+    let d = compute_d(op, ap, d0);
 
     println!("d version 2 = {0}", d);
 
@@ -324,8 +330,9 @@ pub fn compute_offer_amount_curve_v1(ask_pool: u128, offer_pool: u128, ask_amoun
     let op = offer_pool as f64;
     let ap = ask_pool as f64;
     let am = ask_amount as f64;
+    let d0 = 1000.0;
 
-    let d = compute_d(op, ap);
+    let d = compute_d(op, ap, d0);
     let offer_f = get_offer_amount(ap, am, d);
     let offer_amnt: u128 = offer_f as u128;
 
@@ -340,6 +347,33 @@ pub fn compute_offer_amount_curve_v2(ask_pool: u128, offer_pool: u128, ask_amoun
     let offer_amount: u128 = curve_v2(offer_pool, ask_pool, ask_amnt_with_rate);
 
     return offer_amount;
+}
+
+pub fn calculate_alpha(x: f64) -> f64
+{
+    let mut sum_plus = 1.0;
+    let mut sum_minus = 0.0;
+    let lngth = COEFFS.len();
+
+    let mut arr_x: [f64; COEFFS.len()] = [1.0; COEFFS.len()];
+
+    for i in 1..lngth {
+        arr_x[i] = x * LOG_E_2 * arr_x[i-1];
+    }
+
+    for i in 1..COEFFS.len()-1 {
+        if i % 2 == 0 {
+            sum_plus += arr_x[i] * COEFFS[i];
+        }
+        else {
+            sum_minus += arr_x[i] * COEFFS[i];
+        }
+    }
+
+    let numer = sum_plus + sum_minus;
+    let denom = sum_plus - sum_minus;
+
+    return numer / denom;
 }
 
 

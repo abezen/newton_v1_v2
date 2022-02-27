@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 num = "0.4"
 round = "0.1.0"
+ta = "0.5.0"

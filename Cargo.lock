@@ -14,6 +14,7 @@ version = "0.1.0"
 dependencies = [
  "num",
  "round",
+ "ta",
 ]
 
 [[package]]
@@ -97,3 +98,9 @@ name = "round"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da5443da9c42386407d904fe0e58a04be03deacabf0e5b952d265d9f590a6eec"
+
+[[package]]
+name = "ta"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "609409d472a0a7d8d4dd9e19891bbdef546b9dce670c3057d0e02192dc541226"

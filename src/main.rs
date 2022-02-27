@@ -60,5 +60,6 @@ fn main() {
      let commissn: f64 = fra * 0.003;
      println!("commission amount v1 = {:?}", commissn ); 
 
-  
+    let alpha: f64 = root::calculate_alpha(-0.05);
+    println!("alpha = {:?}", alpha);
 }
